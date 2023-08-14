@@ -906,12 +906,21 @@ footer {
 					{{- range .Items}}
 					<tr class="file">
 						<td></td>
+            {{- if .IsDir}}
 						<td>
 							<a href="{{html .URL}}">
 								{{template "icon" .}}
 								<span class="name">{{html .Name}}</span>
 							</a>
 						</td>
+            {{- else}}
+						<td>
+							<a onclick="open_file('{{html .URL}}')" style="cursor: pointer;">
+								{{template "icon" .}}
+								<span class="name">{{html .Name}}</span>
+							</a>
+						</td>
+            {{- end}}
 						{{- if .IsDir}}
 						<td>&mdash;</td>
 						{{- else}}
