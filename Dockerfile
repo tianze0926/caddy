@@ -23,4 +23,4 @@ RUN useradd --create-home --user-group abc &&\
 USER abc
 
 STOPSIGNAL SIGINT
-ENTRYPOINT ["/app/caddy", "run", "--config", "/app/config.json"]
+CMD ["/app/caddy", "run", "--config", "/app/config.json"]
