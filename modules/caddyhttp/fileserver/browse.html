@@ -497,6 +497,19 @@ td .go-up {
 	font-weight: bold;
 }
 
+td > div.play {
+  color: black;
+  background-color: #c2e7ff;
+  padding: 5px 10px;
+  height: fit-content;
+  border-radius: 100px;
+  cursor: pointer;
+  font-size: small;
+}
+td > div.play:hover {
+  background-color: #bbe4ffab;
+}
+
 .name,
 .go-up {
 	word-break: break-all;
@@ -674,6 +687,14 @@ footer {
 	td a:hover .icon-tabler {
 		color: white;
 	}
+
+  td > div.play {
+    color: #fffb;
+    background-color: #0073ff33;
+  }
+  td > div.play:hover {
+    background-color: #75b3ff66;
+  }
 
 	#search-icon {
 		color: #7798c4;
@@ -914,11 +935,14 @@ footer {
 							</a>
 						</td>
             {{- else}}
-						<td>
-							<a onclick="open_file('{{html .URL}}')" style="cursor: pointer;">
+						<td style="display: flex; align-items:center; width: auto;">
+							<a href="{{html .URL}}" style="flex: 1;">
 								{{template "icon" .}}
 								<span class="name">{{html .Name}}</span>
 							</a>
+							<div class="play" onclick="open_file('{{html .URL}}')" style="cursor: pointer;">
+                Play
+              </div>
 						</td>
             {{- end}}
 						{{- if .IsDir}}
