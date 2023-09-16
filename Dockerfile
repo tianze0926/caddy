@@ -4,6 +4,7 @@ RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest; \
     xcaddy build \
         --with github.com/caddyserver/caddy/v2=github.com/tianze0926/caddy/v2@custom \
         --with github.com/caddy-dns/cloudflare \
+        --with github.com/mholt/caddy-dynamicdns \
         --output caddy
 
 
