@@ -19,8 +19,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/caddyserver/caddy/v2"
 	"go.uber.org/zap"
+
+	"github.com/caddyserver/caddy/v2"
 )
 
 // parseVariadic determines if the token is a variadic placeholder,
@@ -48,6 +49,13 @@ func parseVariadic(token Token, argCount int) (bool, int, int) {
 	// If no ":" delimiter is found, this is not a variadic.
 	// The replacer will pick this up.
 	if !found {
+		return false, 0, 0
+	}
+
+	// A valid token may contain several placeholders, and
+	// they may be separated by ":". It's not variadic.
+	// https://github.com/caddyserver/caddy/issues/5716
+	if strings.Contains(start, "}") || strings.Contains(end, "{") {
 		return false, 0, 0
 	}
 

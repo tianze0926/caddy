@@ -30,14 +30,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/caddyserver/caddy/v2"
-	"github.com/caddyserver/caddy/v2/modules/caddyevents"
-	"github.com/caddyserver/caddy/v2/modules/caddytls"
 	"github.com/caddyserver/certmagic"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/modules/caddyevents"
+	"github.com/caddyserver/caddy/v2/modules/caddytls"
 )
 
 // Server describes an HTTP server.
@@ -227,7 +228,6 @@ type Server struct {
 
 	server      *http.Server
 	h3server    *http3.Server
-	h3listeners []net.PacketConn // TODO: we have to hold these because quic-go won't close listeners it didn't create
 	h2listeners []*http2Listener
 	addresses   []caddy.NetworkAddress
 
@@ -245,12 +245,14 @@ type Server struct {
 // ServeHTTP is the entry point for all HTTP requests.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If there are listener wrappers that process tls connections but don't return a *tls.Conn, this field will be nil.
-	// Can be removed if https://github.com/golang/go/pull/56110 is ever merged.
+	// TODO: Can be removed if https://github.com/golang/go/pull/56110 is ever merged.
 	if r.TLS == nil {
-		conn := r.Context().Value(ConnCtxKey).(net.Conn)
-		if csc, ok := conn.(connectionStateConn); ok {
-			r.TLS = new(tls.ConnectionState)
-			*r.TLS = csc.ConnectionState()
+		// not all requests have a conn (like virtual requests) - see #5698
+		if conn, ok := r.Context().Value(ConnCtxKey).(net.Conn); ok {
+			if csc, ok := conn.(connectionStateConn); ok {
+				r.TLS = new(tls.ConnectionState)
+				*r.TLS = csc.ConnectionState()
+			}
 		}
 	}
 
@@ -289,7 +291,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.EnableFullDuplex {
 		// TODO: Remove duplex_go12*.go abstraction once our
 		// minimum Go version is 1.21 or later
-		enableFullDuplex(w)
+		err := enableFullDuplex(w)
+		if err != nil {
+			s.accessLogger.Warn("failed to enable full duplex", zap.Error(err))
+		}
 	}
 
 	// encode the request for logging purposes before
@@ -549,13 +554,7 @@ func (s *Server) findLastRouteWithHostMatcher() int {
 // the listener, with Server s as the handler.
 func (s *Server) serveHTTP3(addr caddy.NetworkAddress, tlsCfg *tls.Config) error {
 	addr.Network = getHTTP3Network(addr.Network)
-	lnAny, err := addr.Listen(s.ctx, 0, net.ListenConfig{})
-	if err != nil {
-		return err
-	}
-	ln := lnAny.(net.PacketConn)
-
-	h3ln, err := caddy.ListenQUIC(ln, tlsCfg, &s.activeRequests)
+	h3ln, err := addr.ListenQUIC(s.ctx, 0, net.ListenConfig{}, tlsCfg, &s.activeRequests)
 	if err != nil {
 		return fmt.Errorf("starting HTTP/3 QUIC listener: %v", err)
 	}
@@ -572,8 +571,6 @@ func (s *Server) serveHTTP3(addr caddy.NetworkAddress, tlsCfg *tls.Config) error
 			},
 		}
 	}
-
-	s.h3listeners = append(s.h3listeners, ln)
 
 	//nolint:errcheck
 	go s.h3server.ServeListener(h3ln)

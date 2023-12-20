@@ -23,8 +23,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/certmagic"
+
+	"github.com/caddyserver/caddy/v2"
 )
 
 type storVal struct {
@@ -199,9 +200,10 @@ func cmdExportStorage(fl Flags) (int, error) {
 			}
 
 			hdr := &tar.Header{
-				Name: k,
-				Mode: 0600,
-				Size: int64(len(v)),
+				Name:    k,
+				Mode:    0o600,
+				Size:    int64(len(v)),
+				ModTime: info.Modified,
 			}
 
 			if err = tw.WriteHeader(hdr); err != nil {

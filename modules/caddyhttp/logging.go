@@ -20,9 +20,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/caddyserver/caddy/v2"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/caddyserver/caddy/v2"
 )
 
 // ServerLogConfig describes a server's logging configuration. If
@@ -147,6 +148,18 @@ type ExtraLogFields struct {
 
 // Add adds a field to the list of extra fields to log.
 func (e *ExtraLogFields) Add(field zap.Field) {
+	e.fields = append(e.fields, field)
+}
+
+// Set sets a field in the list of extra fields to log.
+// If the field already exists, it is replaced.
+func (e *ExtraLogFields) Set(field zap.Field) {
+	for i := range e.fields {
+		if e.fields[i].Key == field.Key {
+			e.fields[i] = field
+			return
+		}
+	}
 	e.fields = append(e.fields, field)
 }
 

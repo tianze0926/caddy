@@ -23,12 +23,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/caddyserver/certmagic"
+	"github.com/mholt/acmez/acme"
+
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"github.com/caddyserver/caddy/v2/modules/caddytls"
-	"github.com/caddyserver/certmagic"
-	"github.com/mholt/acmez/acme"
 )
 
 func (st ServerType) buildTLSApp(
@@ -36,7 +37,6 @@ func (st ServerType) buildTLSApp(
 	options map[string]any,
 	warnings []caddyconfig.Warning,
 ) (*caddytls.TLS, []caddyconfig.Warning, error) {
-
 	tlsApp := &caddytls.TLS{CertificatesRaw: make(caddy.ModuleMap)}
 	var certLoaders []caddytls.CertificateLoader
 
@@ -582,6 +582,7 @@ outer:
 			// eaten up by the one with subjects; and if both have subjects, we
 			// need to combine their lists
 			if reflect.DeepEqual(aps[i].IssuersRaw, aps[j].IssuersRaw) &&
+				reflect.DeepEqual(aps[i].ManagersRaw, aps[j].ManagersRaw) &&
 				bytes.Equal(aps[i].StorageRaw, aps[j].StorageRaw) &&
 				aps[i].MustStaple == aps[j].MustStaple &&
 				aps[i].KeyType == aps[j].KeyType &&

@@ -15,6 +15,7 @@
 package caddytls
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,10 +23,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/certmagic"
 	"github.com/mholt/acmez"
 	"go.uber.org/zap"
+
+	"github.com/caddyserver/caddy/v2"
 )
 
 // AutomationConfig governs the automated management of TLS certificates.
@@ -250,11 +252,11 @@ func (ap *AutomationPolicy) Provision(tlsApp *TLS) error {
 			return fmt.Errorf("on-demand TLS cannot be enabled without an 'ask' endpoint to prevent abuse; please refer to documentation for details")
 		}
 		ond = &certmagic.OnDemandConfig{
-			DecisionFunc: func(name string) error {
+			DecisionFunc: func(ctx context.Context, name string) error {
 				if tlsApp.Automation == nil || tlsApp.Automation.OnDemand == nil {
 					return nil
 				}
-				if err := onDemandAskRequest(tlsApp.logger, tlsApp.Automation.OnDemand.Ask, name); err != nil {
+				if err := onDemandAskRequest(ctx, tlsApp.logger, tlsApp.Automation.OnDemand.Ask, name); err != nil {
 					// distinguish true errors from denials, because it's important to elevate actual errors
 					if errors.Is(err, errAskDenied) {
 						tlsApp.logger.Debug("certificate issuance denied",
@@ -459,29 +461,32 @@ type DNSChallengeConfig struct {
 // Caddy can "ask" if it should be allowed to manage
 // certificates for a given hostname.
 type OnDemandConfig struct {
-	// An optional rate limit to throttle the
-	// issuance of certificates from handshakes.
-	RateLimit *RateLimit `json:"rate_limit,omitempty"`
-
-	// REQUIRED. If Caddy needs to obtain/renew a certificate
-	// during a TLS handshake, it will perform a quick
-	// HTTP request to this URL to check if it should be
-	// allowed to try to get a certificate for the name
-	// in the "domain" query string parameter, like so:
-	// `?domain=example.com`. The endpoint must return a
-	// 200 OK status if a certificate is allowed;
-	// anything else will cause it to be denied.
+	// REQUIRED. If Caddy needs to load a certificate from
+	// storage or obtain/renew a certificate during a TLS
+	// handshake, it will perform a quick HTTP request to
+	// this URL to check if it should be allowed to try to
+	// get a certificate for the name in the "domain" query
+	// string parameter, like so: `?domain=example.com`.
+	// The endpoint must return a 200 OK status if a certificate
+	// is allowed; anything else will cause it to be denied.
 	// Redirects are not followed.
 	Ask string `json:"ask,omitempty"`
+
+	// DEPRECATED. An optional rate limit to throttle
+	// the checking of storage and the issuance of
+	// certificates from handshakes if not already in
+	// storage. WILL BE REMOVED IN A FUTURE RELEASE.
+	RateLimit *RateLimit `json:"rate_limit,omitempty"`
 }
 
-// RateLimit specifies an interval with optional burst size.
+// DEPRECATED. RateLimit specifies an interval with optional burst size.
 type RateLimit struct {
-	// A duration value. A certificate may be obtained 'burst'
-	// times during this interval.
+	// A duration value. Storage may be checked and a certificate may be
+	// obtained 'burst' times during this interval.
 	Interval caddy.Duration `json:"interval,omitempty"`
 
-	// How many times during an interval a certificate can be obtained.
+	// How many times during an interval storage can be checked or a
+	// certificate can be obtained.
 	Burst int `json:"burst,omitempty"`
 }
 

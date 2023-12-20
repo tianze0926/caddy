@@ -34,10 +34,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/caddyserver/caddy/v2/notify"
 	"github.com/caddyserver/certmagic"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/caddyserver/caddy/v2/notify"
 )
 
 // Config is the top (or beginning) of the Caddy configuration structure.
@@ -356,13 +357,13 @@ func unsyncedDecodeAndRun(cfgJSON []byte, allowPersist bool) error {
 			newCfg.Admin.Config.Persist == nil ||
 			*newCfg.Admin.Config.Persist) {
 		dir := filepath.Dir(ConfigAutosavePath)
-		err := os.MkdirAll(dir, 0700)
+		err := os.MkdirAll(dir, 0o700)
 		if err != nil {
 			Log().Error("unable to create folder for config autosave",
 				zap.String("dir", dir),
 				zap.Error(err))
 		} else {
-			err := os.WriteFile(ConfigAutosavePath, cfgJSON, 0600)
+			err := os.WriteFile(ConfigAutosavePath, cfgJSON, 0o600)
 			if err == nil {
 				Log().Info("autosaved config (load with --resume flag)", zap.String("file", ConfigAutosavePath))
 			} else {
@@ -824,14 +825,19 @@ func ParseDuration(s string) (time.Duration, error) {
 // regardless of storage configuration, since each instance is intended to
 // have its own unique ID.
 func InstanceID() (uuid.UUID, error) {
-	uuidFilePath := filepath.Join(AppDataDir(), "instance.uuid")
+	appDataDir := AppDataDir()
+	uuidFilePath := filepath.Join(appDataDir, "instance.uuid")
 	uuidFileBytes, err := os.ReadFile(uuidFilePath)
 	if os.IsNotExist(err) {
 		uuid, err := uuid.NewRandom()
 		if err != nil {
 			return uuid, err
 		}
-		err = os.WriteFile(uuidFilePath, []byte(uuid.String()), 0600)
+		err = os.MkdirAll(appDataDir, 0o600)
+		if err != nil {
+			return uuid, err
+		}
+		err = os.WriteFile(uuidFilePath, []byte(uuid.String()), 0o600)
 		return uuid, err
 	} else if err != nil {
 		return [16]byte{}, err

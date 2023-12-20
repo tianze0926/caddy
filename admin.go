@@ -1196,15 +1196,27 @@ traverseLoop:
 					}
 				case http.MethodPut:
 					if _, ok := v[part]; ok {
-						return fmt.Errorf("[%s] key already exists: %s", path, part)
+						return APIError{
+							HTTPStatus: http.StatusConflict,
+							Err:        fmt.Errorf("[%s] key already exists: %s", path, part),
+						}
 					}
 					v[part] = val
 				case http.MethodPatch:
 					if _, ok := v[part]; !ok {
-						return fmt.Errorf("[%s] key does not exist: %s", path, part)
+						return APIError{
+							HTTPStatus: http.StatusNotFound,
+							Err:        fmt.Errorf("[%s] key does not exist: %s", path, part),
+						}
 					}
 					v[part] = val
 				case http.MethodDelete:
+					if _, ok := v[part]; !ok {
+						return APIError{
+							HTTPStatus: http.StatusNotFound,
+							Err:        fmt.Errorf("[%s] key does not exist: %s", path, part),
+						}
+					}
 					delete(v, part)
 				default:
 					return fmt.Errorf("unrecognized method %s", method)
@@ -1346,7 +1358,7 @@ var (
 // will get deleted before the process gracefully exits.
 func PIDFile(filename string) error {
 	pid := []byte(strconv.Itoa(os.Getpid()) + "\n")
-	err := os.WriteFile(filename, pid, 0600)
+	err := os.WriteFile(filename, pid, 0o600)
 	if err != nil {
 		return err
 	}

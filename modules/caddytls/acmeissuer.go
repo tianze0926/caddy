@@ -16,21 +16,24 @@ package caddytls
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
 	"time"
 
-	"github.com/caddyserver/caddy/v2"
-	"github.com/caddyserver/caddy/v2/caddyconfig"
-	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/caddyserver/certmagic"
 	"github.com/mholt/acmez"
 	"github.com/mholt/acmez/acme"
 	"go.uber.org/zap"
+
+	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 )
 
 func init() {
@@ -495,7 +498,7 @@ func (iss *ACMEIssuer) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 // to see if a certificate can be obtained for name.
 // The certificate request should be denied if this
 // returns an error.
-func onDemandAskRequest(logger *zap.Logger, ask string, name string) error {
+func onDemandAskRequest(ctx context.Context, logger *zap.Logger, ask string, name string) error {
 	askURL, err := url.Parse(ask)
 	if err != nil {
 		return fmt.Errorf("parsing ask URL: %v", err)
@@ -512,7 +515,17 @@ func onDemandAskRequest(logger *zap.Logger, ask string, name string) error {
 	}
 	resp.Body.Close()
 
+	// logging out the client IP can be useful for servers that want to count
+	// attempts from clients to detect patterns of abuse
+	var clientIP string
+	if hello, ok := ctx.Value(certmagic.ClientHelloInfoCtxKey).(*tls.ClientHelloInfo); ok && hello != nil {
+		if remote := hello.Conn.RemoteAddr(); remote != nil {
+			clientIP, _, _ = net.SplitHostPort(remote.String())
+		}
+	}
+
 	logger.Debug("response from ask endpoint",
+		zap.String("client_ip", clientIP),
 		zap.String("domain", name),
 		zap.String("url", askURLString),
 		zap.Int("status", resp.StatusCode))
